@@ -1,0 +1,11 @@
+name: SequencePlayer
+version: '1.0.17'
+main: net.onlinesequencer.player.SequencePlayer
+api-version: 1.19
+authors: [ ashduino101 ]
+description: OnlineSequencer sequence player for Bukkit servers
+depend: [ProtocolLib]
+commands:
+  sequence:
+    description: 'Plays an OnlineSequencer sequence in-game.'
+    usage: '/sequence <sequence_id>'
