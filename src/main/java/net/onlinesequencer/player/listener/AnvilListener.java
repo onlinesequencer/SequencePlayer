@@ -8,6 +8,7 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.*;
 import org.bukkit.inventory.*;
 import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.inventory.meta.components.JukeboxPlayableComponent;
 import org.bukkit.persistence.PersistentDataType;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
@@ -41,7 +42,8 @@ public class AnvilListener implements Listener {
     ));
 
     @EventHandler
-    public void onPrepareAnvil(PrepareAnvilEvent e) throws IOException {
+    @SuppressWarnings("unused")
+    public void onPrepareAnvil(PrepareAnvilEvent e) {
         AnvilInventory anvilInv = e.getInventory();
 
         ItemStack[] itemsInAnvil = anvilInv.getContents();
@@ -50,7 +52,6 @@ public class AnvilListener implements Listener {
                 (itemsInAnvil[0] != null && itemsInAnvil[0].getType().isRecord()) &&
                 itemsInAnvil[1] == null
         ) {
-            ItemStack slot1 = itemsInAnvil[0];
             String rename = e.getInventory().getRenameText();
             if (rename == null) {
                 return;
@@ -70,6 +71,7 @@ public class AnvilListener implements Listener {
             ItemMeta meta = item.getItemMeta();
             assert meta != null;
 
+            // TODO: this blocks the main thread--how do we request the info and still set the result?
             String urlStr = String.format("https://onlinesequencer.net/%s", sequenceId);
             URL url;
             try {
@@ -77,7 +79,15 @@ public class AnvilListener implements Listener {
             } catch (MalformedURLException ie) {
                 return;
             }
-            Document soup = Jsoup.parse(url, 5000);
+            Document soup;
+            try {
+                // TODO: We should probably try to implement an endpoint to just return JSON
+                //  instead of parsing the sequence page
+                soup = Jsoup.parse(url, 5000);
+            } catch (IOException ex) {
+                throw new RuntimeException("Unable to parse sequence response, did the page format change? " +
+                        ex.getMessage());
+            }
             Element title = soup.getElementsByClass("info-sidebar-title").first();
             if (title == null) return;
             String titleText = title.text();
@@ -93,12 +103,18 @@ public class AnvilListener implements Listener {
             meta.setDisplayName(null);
             meta.getPersistentDataContainer()
                     .set(new NamespacedKey(plugin, "sequence"), PersistentDataType.INTEGER, sequenceId);
-            meta.addItemFlags(ItemFlag.HIDE_POTION_EFFECTS);
+            // Required to hide disc lore in older versions
+            meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
+            // TODO: this will probably throw an error in older versions
+            JukeboxPlayableComponent playable = meta.getJukeboxPlayable();
+            if (playable != null) playable.setShowInTooltip(false);
+            meta.setJukeboxPlayable(playable);
             ArrayList<String> lore = new ArrayList<>();
             lore.add(newName);
             meta.setLore(lore);
             e.setResult(item);
             item.setItemMeta(meta);
+            // TODO: figure out compatibility
             anvilInv.setRepairCost(0);
         }
     }
