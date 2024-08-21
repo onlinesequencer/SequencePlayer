@@ -14,7 +14,6 @@ import java.net.MalformedURLException;
 import java.net.ProtocolException;
 import java.net.URL;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.Callable;
@@ -53,6 +52,12 @@ enum DrumSound {
     SNARE,
     HAT,
     OPEN_HAT,
+    HIGHEST_TOM,
+    HIGH_TOM,
+    HIGH_MID_TOM,
+    MID_TOM,
+    MID_LOW_TOM,
+    LOW_TOM,
     STICKS,
     CRASH,
     RIDE,
@@ -64,6 +69,18 @@ enum DrumSound {
                 return new SoundType(1.0f, 4.0f, Sound.BLOCK_NOTE_BLOCK_BASEDRUM);
             case SNARE:
                 return new SoundType(1.0f, 7.0f, Sound.BLOCK_NOTE_BLOCK_SNARE);
+            case HIGHEST_TOM:
+                return new SoundType(1.0f, 24.0f, Sound.BLOCK_NOTE_BLOCK_BASEDRUM);
+            case HIGH_TOM:
+                return new SoundType(1.0f, 20.0f, Sound.BLOCK_NOTE_BLOCK_BASEDRUM);
+            case HIGH_MID_TOM:
+                return new SoundType(1.0f, 18.0f, Sound.BLOCK_NOTE_BLOCK_BASEDRUM);
+            case MID_TOM:
+                return new SoundType(1.0f, 15.0f, Sound.BLOCK_NOTE_BLOCK_BASEDRUM);
+            case MID_LOW_TOM:
+                return new SoundType(1.0f, 12.0f, Sound.BLOCK_NOTE_BLOCK_BASEDRUM);
+            case LOW_TOM:
+                return new SoundType(1.0f, 10.0f, Sound.BLOCK_NOTE_BLOCK_BASEDRUM);
             case HAT:
             case OPEN_HAT:  // idk
                 return new SoundType(1.0f, 12.0f, Sound.BLOCK_NOTE_BLOCK_HAT);
@@ -183,8 +200,8 @@ public class PlayerEngine {
                 List<SequenceProto.Note> notes = new ArrayList<>(seq.getNotesList());
                 notes.sort((SequenceProto.Note a, SequenceProto.Note b) -> (int)((a.getTime() - b.getTime()) * 1000));
                 AtomicReference<Float> lastTime = new AtomicReference<>((float) 0);
-                float bpm = (float) seq.getSettings().getBpm();
-                AtomicReference<Float> sleepTime = new AtomicReference<>(15000f / bpm);
+                AtomicReference<Float> bpm = new AtomicReference<>((float) seq.getSettings().getBpm());
+                AtomicReference<Float> sleepTime = new AtomicReference<>(15000f / bpm.get());
                 if (player != null) player.sendMessage(ChatColor.AQUA + "Playing sequence " + sequenceId);
                 this.playing = true;
                 MarkerTracker tracker = new MarkerTracker(seq.getMarkersList());
@@ -196,6 +213,7 @@ public class PlayerEngine {
                     if (markerBPM != null) {
                         // recalculate tempo
                         sleepTime.set(15000f / markerBPM);
+                        bpm.set(markerBPM);
                     }
                     if (time > lastTime.get()) {
                         long diffTime = (long) (sleepTime.get() * (time - lastTime.get()));
@@ -203,16 +221,29 @@ public class PlayerEngine {
                             TimeUnit.MILLISECONDS.sleep(diffTime);
                         } catch (InterruptedException e) {
                             if (player != null) {
-                                player.sendMessage(ChatColor.RED + "Can't sleep!");
+                                player.sendMessage(ChatColor.RED + "Sleep failed");
                             } else {
-                                Logger.getLogger("SequencePlayer").log(Level.WARNING, String.format("Failed to sleep %d milliseconds in SequencePlayer", diffTime));
+                                Logger.getLogger("SequencePlayer").log(Level.WARNING, String.format("Failed to sleep %d milliseconds", diffTime));
                             }
                         }
                     }
+                    SequenceProto.InstrumentSettings settings = seq.getSettings().getInstrumentsMap().get(note.getInstrument());
                     if (player != null) {
-                        playNote(player, note, seq.getSettings().getInstrumentsMap().get(note.getInstrument()), tracker);
+                        playNote(player, note, settings, tracker);
                     } else {
-                        playNote(location, note, seq.getSettings().getInstrumentsMap().get(note.getInstrument()), tracker);
+                        playNote(location, note, settings, tracker);
+                    }
+                    if (settings.getDelay()) {
+                        // Schedule delay
+                        long delayTicks = (long)((60f / bpm.get()) * 10f);
+                        // 3 responses
+                        for (int i = 0; i < 4; i++) {
+                            if (player != null) {
+                                playNoteDelayed(player, note, settings, tracker, delayTicks * i, (4f - (float)i) * 0.25f);
+                            } else {
+                                playNoteDelayed(location, note, settings, tracker, delayTicks * i, (4f - (float)i) * 0.25f);
+                            }
+                        }
                     }
                     lastTime.set(time);
                     try {
@@ -250,6 +281,18 @@ public class PlayerEngine {
             case 39:
             case 40:
                 return DrumSound.SNARE;
+            case 41:
+                return DrumSound.LOW_TOM;
+            case 43:
+                return DrumSound.MID_LOW_TOM;
+            case 45:
+                return DrumSound.MID_TOM;
+            case 47:
+                return DrumSound.HIGH_MID_TOM;
+            case 48:
+                return DrumSound.HIGH_TOM;
+            case 50:
+                return DrumSound.HIGHEST_TOM;
             case 42:
             case 44:
                 return DrumSound.HAT;
@@ -279,6 +322,14 @@ public class PlayerEngine {
             case 32:
             case 33:
                 return DrumSound.SNARE;
+            case 38:
+                return DrumSound.MID_TOM;
+            case 39:
+                return DrumSound.HIGH_MID_TOM;
+            case 40:
+                return DrumSound.HIGH_TOM;
+            case 41:
+                return DrumSound.HIGHEST_TOM;
             case 34:
             case 44:
                 return DrumSound.STICKS;
@@ -321,6 +372,19 @@ public class PlayerEngine {
             case 56:
             case 58:
                 return DrumSound.SNARE;
+            // this drum kit has kind of wonky tom pitches, but this should do
+            case 37:
+                return DrumSound.LOW_TOM;
+            case 39:
+                return DrumSound.MID_TOM;
+            case 41:
+                return DrumSound.MID_LOW_TOM;
+            case 43:
+                return DrumSound.HIGH_MID_TOM;
+            case 44:
+                return DrumSound.HIGH_TOM;
+            case 46:
+                return DrumSound.HIGHEST_TOM;
             case 38:
                 return DrumSound.HAT;
             case 40:
@@ -351,6 +415,18 @@ public class PlayerEngine {
             case 32:
             case 40:
                 return DrumSound.SNARE;
+            case 33:
+                return DrumSound.LOW_TOM;
+            case 35:
+                return DrumSound.MID_LOW_TOM;
+            case 34:
+                return DrumSound.MID_TOM;
+            case 37:
+                return DrumSound.HIGH_MID_TOM;
+            case 36:
+                return DrumSound.HIGH_TOM;
+            case 38:
+                return DrumSound.HIGHEST_TOM;
             case 41:
             case 42:
                 return DrumSound.HAT;
@@ -383,6 +459,17 @@ public class PlayerEngine {
             case 32:
             case 33:
                 return DrumSound.SNARE;
+            case 36:
+                return DrumSound.LOW_TOM;
+            case 37:
+                return DrumSound.MID_LOW_TOM;
+            case 38:
+            case 40:
+                return DrumSound.MID_TOM;
+            case 39:
+                return DrumSound.HIGH_MID_TOM;
+            case 41:
+                return DrumSound.HIGH_TOM;
             case 42:
             case 44:
                 return DrumSound.HAT;
@@ -554,5 +641,19 @@ public class PlayerEngine {
         if (params == null) return;
         getServer().getScheduler().runTask(plugin, () ->
                 Objects.requireNonNull(location.getWorld()).playSound(location, params.inst, params.volume * 2, params.pitch));
+    }
+
+    private void playNoteDelayed(Player player, SequenceProto.Note note, SequenceProto.InstrumentSettings instSettings, MarkerTracker tracker, long ticks, float volMod) {
+        NormalizedSoundParams params = this.getParams(note, instSettings, tracker);
+        if (params == null) return;
+        getServer().getScheduler().runTaskLater(plugin, () ->
+                player.playSound(player.getLocation(), params.inst, params.volume * volMod, params.pitch), ticks);
+    }
+
+    private void playNoteDelayed(Location location, SequenceProto.Note note, SequenceProto.InstrumentSettings instSettings, MarkerTracker tracker, long ticks, float volMod) {
+        NormalizedSoundParams params = this.getParams(note, instSettings, tracker);
+        if (params == null) return;
+        getServer().getScheduler().runTaskLater(plugin, () ->
+                Objects.requireNonNull(location.getWorld()).playSound(location, params.inst, params.volume * 2 * volMod, params.pitch), ticks);
     }
 }
