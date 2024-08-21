@@ -14,6 +14,7 @@ import java.net.MalformedURLException;
 import java.net.ProtocolException;
 import java.net.URL;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.Callable;
@@ -129,6 +130,8 @@ class MarkerTracker {
 
 public class PlayerEngine {
     boolean playing;
+    
+    static final double[] volumeWeight = {0.25, 0.5, 0.4, 0.8, 0.8, 0.8, 0.65, 0.8, 0.3, 0.2, 0.2, 0.55, 0.1, 0.1, 0.1, 0.1, 0.1, 0.3, 0.3, 0.3, 1.3, 1.3, 1.5, 1, 1, 1.5, 1.5, 1.0, 1.0, 1.0, 1.0, 0.8, 1.0, 1.3, 1.0, 1.0, 1.0, 0.5, 1.0, 1.0, 1.0, 0.4, 2.8, 0.18, 0.3, 1, 0.55, 1, 0.6, 0.4, 0.5, 0.5, 0.8, 0.8, 0.8, 0.1, 0.3, 0.3, 0.3, 0.0, 1.0};
 
     public Thread getThread(Object executor, int sequenceId, Callable<Boolean> onNote, Callable<Boolean> onEnded) {
         Player player;
@@ -466,7 +469,7 @@ public class PlayerEngine {
 
     private NormalizedSoundParams getParams(SequenceProto.Note note, SequenceProto.InstrumentSettings instSettings, MarkerTracker tracker) {
         Sound inst = translateInstrument(note.getInstrument());
-        float volume = note.getVolume();
+        float volume = note.getVolume() * (float) volumeWeight[note.getInstrument() % 10000];
         float pitch = (float)note.getTypeValue();
         float addPitch = 0f;
         float multVolume = 1f;
