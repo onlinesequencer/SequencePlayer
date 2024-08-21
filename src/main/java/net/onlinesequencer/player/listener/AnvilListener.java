@@ -38,7 +38,10 @@ public class AnvilListener implements Listener {
             Material.MUSIC_DISC_WARD,
             Material.MUSIC_DISC_PIGSTEP,
             Material.MUSIC_DISC_OTHERSIDE,
-            Material.MUSIC_DISC_RELIC
+            Material.MUSIC_DISC_RELIC,
+            Material.MUSIC_DISC_CREATOR,
+            Material.MUSIC_DISC_CREATOR_MUSIC_BOX,
+            Material.MUSIC_DISC_PRECIPICE
     ));
 
     @EventHandler
