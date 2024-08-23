@@ -233,7 +233,7 @@ public class PlayerEngine {
                     } else {
                         playNote(location, note, settings, tracker);
                     }
-                    if (settings.getDelay()) {
+                    if (settings != null && settings.getDelay()) {
                         // Schedule delay
                         long delayTicks = (long)((60f / bpm.get()) * 10f);
                         // 3 responses
@@ -556,7 +556,7 @@ public class PlayerEngine {
 
     private NormalizedSoundParams getParams(SequenceProto.Note note, SequenceProto.InstrumentSettings instSettings, MarkerTracker tracker) {
         Sound inst = translateInstrument(note.getInstrument());
-        float volume = note.getVolume() * (float) volumeWeight[note.getInstrument() % 10000];
+        float volume = note.getVolume()/* * (float) volumeWeight[note.getInstrument() % 10000]*/;
         float pitch = (float)note.getTypeValue();
         float addPitch = 0f;
         float multVolume = 1f;
